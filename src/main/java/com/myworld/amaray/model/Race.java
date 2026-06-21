@@ -2,6 +2,7 @@ package com.myworld.amaray.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import java.util.Set;
 
 @Data
 @Entity
@@ -22,15 +23,21 @@ public class Race {
     private String description;
 
     @Column
-    private String type;
-
-    @Column
     private String origin;
 
     @Column(columnDefinition = "TEXT")
     private String features;
 
+    // Связь многие-ко-многим с тегами
+    @ManyToMany
+    @JoinTable(
+            name = "race_tags",
+            joinColumns = @JoinColumn(name = "race_id"),
+            inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    private Set<Tag> tags;
+
     @Column
-    private String syncStatus = "SYNCED";
+    private String syncState = "SYNCED";
 //    syncStatus — это наш тег из которого мы говорили. Дефолтное значение SYNCED, при создании через проект будет PENDING.
 }

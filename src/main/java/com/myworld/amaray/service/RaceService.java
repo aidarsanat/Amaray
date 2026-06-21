@@ -5,6 +5,11 @@ import com.myworld.amaray.repository.RaceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import com.myworld.amaray.model.Tag;
+import com.myworld.amaray.repository.TagRepository;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import java.util.List;
 
 @Service
@@ -13,6 +18,7 @@ import java.util.List;
 public class RaceService {
 
     private final RaceRepository raceRepository;
+    private final TagRepository tagRepository;
 
     // Получить все расы
     public List<Race> getAllRaces() {
@@ -32,7 +38,15 @@ public class RaceService {
         if (raceRepository.existsByName(race.getName())) {
             throw new RuntimeException("Раса с именем '" + race.getName() + "' уже существует");
         }
-        race.setSyncStatus("PENDING");
+        // Загружаем полные объекты тегов из БД по их id
+        if (race.getTags() != null) {
+            Set<Tag> fullTags = race.getTags().stream()
+                    .map(tag -> tagRepository.findById(tag.getId())
+                            .orElseThrow(() -> new RuntimeException("Тег с id " + tag.getId() + " не найден")))
+                    .collect(Collectors.toSet());
+            race.setTags(fullTags);
+        }
+        race.setSyncState("PENDING");
         return raceRepository.save(race);
     }
 //  setSyncStatus("PENDING") — каждый раз когда создаём или редактируем через проект, автоматически помечаем как "надо перенести в таблицу". Не нужно помнить об этом вручную.
@@ -42,10 +56,16 @@ public class RaceService {
         Race existing = getRaceById(id);
         existing.setName(updatedRace.getName());
         existing.setDescription(updatedRace.getDescription());
-        existing.setType(updatedRace.getType());
         existing.setOrigin(updatedRace.getOrigin());
         existing.setFeatures(updatedRace.getFeatures());
-        existing.setSyncStatus("PENDING");
+        if (updatedRace.getTags() != null) {
+            Set<Tag> fullTags = updatedRace.getTags().stream()
+                    .map(tag -> tagRepository.findById(tag.getId())
+                            .orElseThrow(() -> new RuntimeException("Тег с id " + tag.getId() + " не найден")))
+                    .collect(Collectors.toSet());
+            existing.setTags(fullTags);
+        }
+        existing.setSyncState("PENDING");
         return raceRepository.save(existing);
     }
 
@@ -58,14 +78,14 @@ public class RaceService {
     // Пометить как синхронизированную
     public Race markAsSynced(Long id) {
         Race race = getRaceById(id);
-        race.setSyncStatus("SYNCED");
+        race.setSyncState("SYNCED");
         return raceRepository.save(race);
     }
 
     // Получить все несинхронизированные
     public List<Race> getPendingRaces() {
         return raceRepository.findAll().stream()
-                .filter(r -> "PENDING".equals(r.getSyncStatus()))
+                .filter(r -> "PENDING".equals(r.getSyncState()))
                 .toList();
     }
 }
